@@ -6,3 +6,6 @@ sqlalchemy==2.0.35
 pymysql==1.1.1
 python-dotenv==1.0.1
 python-multipart==0.0.12
+pytesseract==0.3.13
+opencv-python>=4.10.0
+pillow==11.0.0
