@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.ocr.extractor import extract_text_from_image
+from app.ocr.nutrition_parser import parse_nutrition_from_text
 
 router = APIRouter()
 
@@ -9,9 +10,10 @@ MAX_FILE_SIZE_MB = 10
 @router.post("/scan")
 async def scan_label(file: UploadFile = File(...)):
     """
-    Accept an uploaded photo of a nutrition label, run OCR on it, and return
-    the raw extracted text. This is step 1 of OCR -- parsing this raw text
-    into structured nutrition data comes in a later step.
+    Accept an uploaded photo of a nutrition label, run OCR, and parse the
+    result into structured nutrition data. Both the raw OCR text and the
+    parsed structured values are returned -- the raw text lets a user verify
+    or manually correct anything the parser got wrong.
     """
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
@@ -37,10 +39,14 @@ async def scan_label(file: UploadFile = File(...)):
         return {
             "filename": file.filename,
             "raw_text": "",
-            "warning": "No text could be detected in this image. Try a clearer, well-lit photo of the label.",
+            "parsed_nutrition": None,
+            "warning": "No text could be detected in this image. Try a clearer, well-lit, flat-on photo of the label.",
         }
+
+    parsed = parse_nutrition_from_text(raw_text)
 
     return {
         "filename": file.filename,
         "raw_text": raw_text,
+        "parsed_nutrition": parsed,
     }
