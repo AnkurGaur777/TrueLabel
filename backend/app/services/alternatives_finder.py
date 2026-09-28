@@ -5,10 +5,14 @@ USER_AGENT = "TrueLabel - Student Portfolio Project - contact@example.com"
 
 NUTRISCORE_RANK = {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "not-applicable": 99, "unknown": 99}
 
+# A candidate must have at least this much LESS sugar to count as "lower sugar",
+# so trivial differences (35g vs 36g) are not presented as healthier alternatives.
+MIN_SUGAR_IMPROVEMENT = 0.20
+
 def _nutriscore_rank(grade: str) -> int:
     return NUTRISCORE_RANK.get((grade or "").lower(), 99)
 
-def _search_by_category(category_tag: str, page_size: int = 15):
+def _search_by_category(category_tag: str, page_size: int = 20):
     """Search Open Food Facts for products in a specific category."""
     url = f"{BASE_URL}/cgi/search.pl"
     params = {
@@ -25,23 +29,18 @@ def _search_by_category(category_tag: str, page_size: int = 15):
     return response.json()
 
 def _extract_primary_category(categories_text: str) -> str:
-    """
-    Open Food Facts' categories field is a comma-separated list, often mixing
-    languages and specificity levels (e.g. "en:Biscuits, Cookies, Sucres").
-    Take the first tag as a reasonable category to search within -- it's
-    usually the most relevant/general one for that product.
-    """
+    """Use the first category tag as the category to search within."""
     if not categories_text:
         return ""
-    first = categories_text.split(",")[0].strip()
-    return first
+    return categories_text.split(",")[0].strip()
 
 def find_healthier_alternatives(product: dict, max_results: int = 5) -> dict:
     """
-    Given a parsed product (with categories, nutriscore_grade, nutrition_per_100g,
-    product_name), search for other products in the same category that have a
-    better Nutri-Score or lower sugar content. Returns the alternatives found,
-    or a clear "none found" result rather than forcing a weak match.
+    Find products in the same category with a better Nutri-Score or clearly
+    lower sugar (at least 20% lower). Candidates are collected first, then
+    ranked (best Nutri-Score first, then lowest sugar), so the top results
+    are the strongest ones. Returns a clear "none found" result rather than
+    forcing a weak match.
     """
     category = _extract_primary_category(product.get("categories", ""))
     if not category:
@@ -57,7 +56,7 @@ def find_healthier_alternatives(product: dict, max_results: int = 5) -> dict:
     original_sugar = product.get("nutrition_per_100g", {}).get("sugars_g")
 
     try:
-        raw = _search_by_category(category, page_size=15)
+        raw = _search_by_category(category)
     except Exception as e:
         return {
             "can_search": False,
@@ -65,10 +64,8 @@ def find_healthier_alternatives(product: dict, max_results: int = 5) -> dict:
             "alternatives": [],
         }
 
-    candidates = raw.get("products", [])
-    alternatives = []
-
-    for candidate in candidates:
+    found = []
+    for candidate in raw.get("products", []):
         candidate_name = candidate.get("product_name", "")
         if not candidate_name or candidate_name == original_name:
             continue
@@ -81,26 +78,29 @@ def find_healthier_alternatives(product: dict, max_results: int = 5) -> dict:
         is_lower_sugar = (
             isinstance(candidate_sugar, (int, float))
             and isinstance(original_sugar, (int, float))
-            and candidate_sugar < original_sugar
+            and candidate_sugar <= original_sugar * (1 - MIN_SUGAR_IMPROVEMENT)
         )
 
-        if is_better_grade or is_lower_sugar:
-            reason_parts = []
-            if is_better_grade:
-                reason_parts.append(f"better Nutri-Score ({candidate_grade.upper()} vs {original_grade.upper()})")
-            if is_lower_sugar:
-                reason_parts.append(f"lower sugar ({candidate_sugar}g vs {original_sugar}g per 100g)")
+        if not (is_better_grade or is_lower_sugar):
+            continue
 
-            alternatives.append({
-                "product_name": candidate_name,
-                "brands": candidate.get("brands", ""),
-                "nutriscore_grade": candidate_grade,
-                "sugars_g": candidate_sugar if candidate_sugar is not None else "not available",
-                "why_better": " and ".join(reason_parts),
-            })
+        reasons = []
+        if is_better_grade:
+            reasons.append(f"better Nutri-Score ({candidate_grade.upper()} vs {original_grade.upper()})")
+        if is_lower_sugar:
+            reasons.append(f"lower sugar ({round(candidate_sugar, 1)}g vs {original_sugar}g per 100g)")
 
-        if len(alternatives) >= max_results:
-            break
+        sort_sugar = candidate_sugar if isinstance(candidate_sugar, (int, float)) else 999
+        found.append((candidate_rank, sort_sugar, {
+            "product_name": candidate_name,
+            "brands": candidate.get("brands", ""),
+            "nutriscore_grade": candidate_grade,
+            "sugars_g": round(candidate_sugar, 1) if isinstance(candidate_sugar, (int, float)) else "not available",
+            "why_better": " and ".join(reasons),
+        }))
+
+    found.sort(key=lambda item: (item[0], item[1]))
+    alternatives = [item[2] for item in found[:max_results]]
 
     if not alternatives:
         return {
@@ -109,8 +109,4 @@ def find_healthier_alternatives(product: dict, max_results: int = 5) -> dict:
             "alternatives": [],
         }
 
-    return {
-        "can_search": True,
-        "reason": None,
-        "alternatives": alternatives,
-    }
+    return {"can_search": True, "reason": None, "alternatives": alternatives}

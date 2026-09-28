@@ -5,15 +5,22 @@ from app.services.usda_client import search_usda
 from app.services.usda_parser import parse_usda_food
 from app.nlp.ingredient_flagger import flag_ingredients
 from app.services.alternatives_finder import find_healthier_alternatives
+from app.services.health_score import calculate_health_score
 
 router = APIRouter()
 
 def _enrich_product(product: dict) -> dict:
-    """Add ingredient risk flags and healthier alternatives to a parsed
-    product dict."""
+    """Add ingredient risk flags, a health score, and healthier alternatives
+    to a parsed packaged product. Flags come first because the score uses them."""
     product["ingredient_flags"] = flag_ingredients(product.get("ingredients_text", ""))
+    product["health_score"] = calculate_health_score(product)
     product["alternatives"] = find_healthier_alternatives(product)
     return product
+
+def _enrich_raw_food(food: dict) -> dict:
+    """Raw/generic foods have no ingredient list, so they only get a score."""
+    food["health_score"] = calculate_health_score(food)
+    return food
 
 @router.get("/search")
 def search_product(query: str, is_barcode: bool = False):
@@ -26,11 +33,8 @@ def search_product(query: str, is_barcode: bool = False):
     Name searches query BOTH Open Food Facts (packaged products) and USDA
     FoodData Central (raw/generic foods) and return both sets separately.
 
-    Every packaged product result includes:
-    - ingredient_flags: allergens, artificial additives, high-sugar
-      indicators, and ultra-processed markers (multilingual keyword matching)
-    - alternatives: other products in the same category with a better
-      Nutri-Score or lower sugar, when available
+    Every result includes an estimated health_score. Packaged products also
+    include ingredient_flags and healthier alternatives.
     """
     if is_barcode:
         try:
@@ -55,7 +59,7 @@ def search_product(query: str, is_barcode: bool = False):
     usda_error = None
     try:
         usda_raw = search_usda(query)
-        usda_results = [parse_usda_food(f) for f in usda_raw.get("foods", [])]
+        usda_results = [_enrich_raw_food(parse_usda_food(f)) for f in usda_raw.get("foods", [])]
     except Exception as e:
         usda_error = str(e)
 

@@ -17,6 +17,14 @@ def _mg_to_g(value):
         return round(value / 1000, 4)
     return value
 
+def _get_first_nutrient(food: dict, names: list, unit: str = None):
+    """Try several possible USDA names for the same nutrient, in order."""
+    for name in names:
+        value = _get_nutrient(food, name, unit)
+        if value != "not available":
+            return value
+    return "not available"
+
 def parse_usda_food(food: dict) -> dict:
     """Extract clean, consistent fields from a raw USDA FoodData Central food
     object. Matches the same output shape and units as parse_product() for
@@ -32,7 +40,7 @@ def parse_usda_food(food: dict) -> dict:
         "nutrition_per_100g": {
             "energy_kcal": _get_nutrient(food, "Energy", unit="KCAL"),
             "carbs_g": _get_nutrient(food, "Carbohydrate, by difference"),
-            "sugars_g": _get_nutrient(food, "Sugars, total"),
+            "sugars_g": _get_first_nutrient(food, ["Sugars, total", "Total Sugars", "Sugars, Total"]),
             "protein_g": _get_nutrient(food, "Protein"),
             "fat_g": _get_nutrient(food, "Total lipid (fat)"),
             "sodium_g": _mg_to_g(_get_nutrient(food, "Sodium", unit="MG")),
