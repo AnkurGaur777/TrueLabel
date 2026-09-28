@@ -103,6 +103,6 @@ def calculate_health_score(product: dict) -> dict:
         "breakdown": breakdown,
         "data_used": data_used,
         "missing_nutrients": missing,
-        "confidence": "low" if "sugars" in missing else ("high" if not missing else "medium"),
+        "confidence": "low" if ("sugars" in missing or "fat" in missing) else ("high" if not missing else "medium"),
         "disclaimer": "Estimated score only, not an official health rating.",
     }

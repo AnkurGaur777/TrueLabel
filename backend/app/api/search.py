@@ -7,6 +7,7 @@ from app.nlp.ingredient_flagger import flag_ingredients
 from app.services.alternatives_finder import find_healthier_alternatives
 from app.services.health_score import calculate_health_score
 from app.services.scan_logger import log_search
+from app.services.result_builder import enrich_raw_food as _enrich_raw_food
 
 router = APIRouter()
 
@@ -17,11 +18,6 @@ def _enrich_product(product: dict) -> dict:
     product["health_score"] = calculate_health_score(product)
     product["alternatives"] = find_healthier_alternatives(product)
     return product
-
-def _enrich_raw_food(food: dict) -> dict:
-    """Raw/generic foods have no ingredient list, so they only get a score."""
-    food["health_score"] = calculate_health_score(food)
-    return food
 
 @router.get("/search")
 def search_product(query: str, is_barcode: bool = False):

@@ -3,7 +3,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.classifier.produce_classifier import classify_produce
 from app.services.usda_client import search_usda
 from app.services.usda_parser import parse_usda_food
-from app.services.scan_logger import log_scan
+from app.services.result_builder import enrich_raw_food
+from app.services.scan_logger import log_scan, log_search
 
 router = APIRouter()
 
@@ -11,39 +12,29 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/jpg", "image/webp"}
 MAX_FILE_SIZE_MB = 10
 
 def _contains_whole_word(text: str, word: str) -> bool:
-    """Check if 'word' appears as a whole word in 'text', not as a substring
-    of a larger word. E.g. "apple" should match "Apples, raw" but NOT match
-    "Rose-apples, raw" (where "apple" is embedded inside "rose-apples")."""
+    """True if 'word' appears as a whole word, not inside a larger word
+    ("apple" matches "Apples, raw" but not "Rose-apples, raw")."""
     return re.search(rf"\b{re.escape(word)}", text) is not None
 
 def _pick_best_usda_match(foods: list, label: str):
-    """
-    Prefer, in order:
-    1. A description that STARTS WITH the label (word-boundary) AND contains "raw"
-       (e.g. "Apples, raw" for label "apple")
-    2. A description that contains the label as a whole word AND "raw"
-    3. Fall back to the first result if nothing matches "raw" at all
-    """
+    """Prefer 'Label..., raw', then any whole-word match containing 'raw',
+    then the first result."""
     label_lower = label.lower()
-
     for food in foods:
         description = food.get("description", "").lower()
         if description.startswith(label_lower) and "raw" in description:
             return food
-
     for food in foods:
         description = food.get("description", "").lower()
         if _contains_whole_word(description, label_lower) and "raw" in description:
             return food
-
     return foods[0] if foods else None
 
 @router.post("/classify")
 async def classify_produce_photo(file: UploadFile = File(...)):
     """
-    Accept a photo of raw produce, identify it using an image classifier,
-    then look up its nutrition data from USDA FoodData Central, preferring
-    the raw/unprocessed version of that food.
+    Identify a fruit/vegetable from a photo, look up its USDA nutrition, and
+    return the standard product object plus the classifier's top guesses.
     """
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
@@ -68,32 +59,39 @@ async def classify_produce_photo(file: UploadFile = File(...)):
     top_label = predictions[0]["label"]
     top_confidence = predictions[0]["confidence"]
 
-    nutrition_result = None
-    nutrition_error = None
+    warnings = []
+    if top_confidence < 0.6:
+        warnings.append(
+            f"The model is only {round(top_confidence * 100)}% sure this is {top_label}. Check the other guesses."
+        )
+
+    product = None
     try:
         usda_raw = search_usda(top_label, page_size=25)
-        foods = usda_raw.get("foods", [])
-        best_match = _pick_best_usda_match(foods, top_label)
+        best_match = _pick_best_usda_match(usda_raw.get("foods", []), top_label)
         if best_match:
-            nutrition_result = parse_usda_food(best_match)
+            product = enrich_raw_food(parse_usda_food(best_match))
+        else:
+            warnings.append(f"No USDA nutrition entry found for '{top_label}'.")
     except Exception as e:
-        nutrition_error = str(e)
+        warnings.append(f"Nutrition lookup failed: {e}")
 
-    log_scan(
-        input_type="produce_photo",
-        query_text=file.filename,
-        product_name=(nutrition_result or {}).get("product_name") or top_label,
-        nutrition_data=(nutrition_result or {}).get("nutrition_per_100g"),
+    warnings.append(
+        "Identification is AI-generated and may be wrong, especially for unusual angles or lighting. Nutrition is a USDA generic estimate, not specific to your exact item."
     )
 
+    if product:
+        log_search(file.filename, "produce_photo", product)
+    else:
+        log_scan(input_type="produce_photo", query_text=file.filename, product_name=top_label)
+
     return {
-        "filename": file.filename,
-        "predictions": predictions,
-        "best_guess": {
-            "label": top_label,
-            "confidence": top_confidence,
+        "input_type": "produce_photo",
+        "source": "usda_fdc",
+        "product": product,
+        "identification": {
+            "best_guess": {"label": top_label, "confidence": top_confidence},
+            "predictions": predictions,
         },
-        "nutrition": nutrition_result,
-        "nutrition_error": nutrition_error,
-        "note": "Identification is AI-generated and may be wrong, especially for unusual angles or lighting. Nutrition data is a USDA generic estimate for this food, not specific to your exact item.",
+        "warnings": warnings,
     }

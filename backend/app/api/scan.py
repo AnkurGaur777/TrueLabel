@@ -1,7 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.ocr.extractor import extract_text_from_image
 from app.ocr.nutrition_parser import parse_nutrition_from_text
-from app.services.scan_logger import log_scan
+from app.services.result_builder import ocr_to_product
+from app.services.scan_logger import log_search
 
 router = APIRouter()
 
@@ -11,10 +12,9 @@ MAX_FILE_SIZE_MB = 10
 @router.post("/scan")
 async def scan_label(file: UploadFile = File(...)):
     """
-    Accept an uploaded photo of a nutrition label, run OCR, and parse the
-    result into structured nutrition data. Both the raw OCR text and the
-    parsed structured values are returned -- the raw text lets a user verify
-    or manually correct anything the parser got wrong.
+    Accept a photo of a nutrition label, run OCR, and return the standard
+    product object (nutrition, health score, flags) plus the raw OCR text so
+    the user can verify what was read.
     """
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
@@ -38,17 +38,23 @@ async def scan_label(file: UploadFile = File(...)):
 
     if not raw_text.strip():
         return {
-            "filename": file.filename,
+            "input_type": "label_photo",
+            "source": "ocr",
+            "product": None,
             "raw_text": "",
-            "parsed_nutrition": None,
-            "warning": "No text could be detected in this image. Try a clearer, well-lit, flat-on photo of the label.",
+            "warnings": ["No text could be detected in this image. Try a clearer, well-lit, flat-on photo of the label."],
         }
 
     parsed = parse_nutrition_from_text(raw_text)
-    log_scan(input_type="label_photo", query_text=file.filename, nutrition_data=parsed)
+    product = ocr_to_product(parsed)
+    log_search(file.filename, "label_photo", product)
 
     return {
-        "filename": file.filename,
+        "input_type": "label_photo",
+        "source": "ocr",
+        "product": product,
         "raw_text": raw_text,
-        "parsed_nutrition": parsed,
+        "warnings": [
+            "Values were read from the photo by OCR and assumed to be per 100g. Digits and decimal points can be misread, so verify against the physical label."
+        ],
     }
