@@ -47,6 +47,7 @@ async def scan_label(file: UploadFile = File(...)):
 
     parsed = parse_nutrition_from_text(raw_text)
     product = ocr_to_product(parsed)
+    ocr_notes = product.pop("ocr_notes", [])
     log_search(file.filename, "label_photo", product)
 
     return {
@@ -56,5 +57,5 @@ async def scan_label(file: UploadFile = File(...)):
         "raw_text": raw_text,
         "warnings": [
             "Values were read from the photo by OCR and assumed to be per 100g. Digits and decimal points can be misread, so verify against the physical label."
-        ],
+        ] + ocr_notes,
     }

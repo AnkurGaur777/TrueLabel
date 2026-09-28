@@ -96,6 +96,18 @@ def calculate_health_score(product: dict) -> dict:
     else:
         rating = "red"
 
+    confidence = (
+        "low" if ("sugars" in missing or "fat" in missing)
+        else ("high" if not missing else "medium")
+    )
+
+    score_note = None
+    if confidence == "low" and rating != "red":
+        # Sugar and fat are penalty rules, so missing data can only LOWER the
+        # true score. Green/yellow may be too optimistic; only red is reliable.
+        rating = "uncertain"
+        score_note = "Key nutrients (sugar and/or fat) are missing, so the true score could be lower. Treat this as provisional."
+
     return {
         "can_score": True,
         "score": score,
@@ -103,6 +115,7 @@ def calculate_health_score(product: dict) -> dict:
         "breakdown": breakdown,
         "data_used": data_used,
         "missing_nutrients": missing,
-        "confidence": "low" if ("sugars" in missing or "fat" in missing) else ("high" if not missing else "medium"),
+        "confidence": confidence,
+        "score_note": score_note,
         "disclaimer": "Estimated score only, not an official health rating.",
     }

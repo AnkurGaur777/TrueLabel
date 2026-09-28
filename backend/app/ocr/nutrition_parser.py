@@ -31,18 +31,18 @@ def parse_nutrition_from_text(raw_text: str) -> dict:
     ])
 
     total_sugars = _find_nutrient_value(text, [
-        r"total sugars?[^\d]*(\d+\.\d+)",
-        r"total sugars?[^\d]*(\d+)",
+        r"total\s*sugars?[^\d]*(\d+\.\d+)",
+        r"total\s*sugars?[^\d]*(\d+)",
     ])
 
     added_sugars = _find_nutrient_value(text, [
-        r"added sugars?[^\d]*(\d+\.\d+)",
-        r"added sugars?[^\d]*(\d+)",
+        r"added\s*sugars?[^\d]*(\d+\.\d+)",
+        r"added\s*sugars?[^\d]*(\d+)",
     ])
 
     total_fat = _find_nutrient_value(text, [
-        r"total fat[^\d]*(\d+\.\d+)",
-        r"total fat[^\d]*(\d+)",
+        r"total\s*fat[^\d]*(\d+\.\d+)",
+        r"total\s*fat[^\d]*(\d+)",
     ])
 
     saturated_fat = _find_nutrient_value(text, [

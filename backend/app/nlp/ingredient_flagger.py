@@ -59,7 +59,7 @@ def flag_ingredients(ingredients_text: str) -> dict:
     summary_parts = []
     if allergens:
         allergen_names = ", ".join(a["allergen"].replace("_", " ") for a in allergens)
-        summary_parts.append(f"Contains common allergens: {allergen_names}")
+        summary_parts.append(f"Contains or may contain common allergens: {allergen_names}")
     if additives:
         summary_parts.append(f"Contains {len(additives)} artificial additive(s)")
     if sugar_indicators:
