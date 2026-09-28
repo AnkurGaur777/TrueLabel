@@ -14,3 +14,4 @@ torch==2.14.0
 timm==1.0.30
 langdetect==1.0.9
 deep-translator==1.11.4
+cryptography
