@@ -6,6 +6,7 @@ from app.services.usda_parser import parse_usda_food
 from app.nlp.ingredient_flagger import flag_ingredients
 from app.services.alternatives_finder import find_healthier_alternatives
 from app.services.health_score import calculate_health_score
+from app.services.scan_logger import log_search
 
 router = APIRouter()
 
@@ -45,6 +46,7 @@ def search_product(query: str, is_barcode: bool = False):
         if raw.get("status") != 1:
             raise HTTPException(status_code=404, detail="Product not found for this barcode")
         product = _enrich_product(parse_product(raw.get("product", {})))
+        log_search(query, "barcode", product)
         return {"source": "openfoodfacts", "result": product}
 
     off_results = []
@@ -68,6 +70,9 @@ def search_product(query: str, is_barcode: bool = False):
             status_code=404,
             detail=f"No results from either source. Open Food Facts error: {off_error}. USDA error: {usda_error}",
         )
+
+    top = off_results[0] if off_results else usda_results[0]
+    log_search(query, "search", top)
 
     return {
         "packaged_products": {

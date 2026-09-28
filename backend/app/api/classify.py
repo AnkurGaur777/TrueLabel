@@ -3,6 +3,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.classifier.produce_classifier import classify_produce
 from app.services.usda_client import search_usda
 from app.services.usda_parser import parse_usda_food
+from app.services.scan_logger import log_scan
 
 router = APIRouter()
 
@@ -77,6 +78,13 @@ async def classify_produce_photo(file: UploadFile = File(...)):
             nutrition_result = parse_usda_food(best_match)
     except Exception as e:
         nutrition_error = str(e)
+
+    log_scan(
+        input_type="produce_photo",
+        query_text=file.filename,
+        product_name=(nutrition_result or {}).get("product_name") or top_label,
+        nutrition_data=(nutrition_result or {}).get("nutrition_per_100g"),
+    )
 
     return {
         "filename": file.filename,

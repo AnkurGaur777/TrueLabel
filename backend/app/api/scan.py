@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.ocr.extractor import extract_text_from_image
 from app.ocr.nutrition_parser import parse_nutrition_from_text
+from app.services.scan_logger import log_scan
 
 router = APIRouter()
 
@@ -44,6 +45,7 @@ async def scan_label(file: UploadFile = File(...)):
         }
 
     parsed = parse_nutrition_from_text(raw_text)
+    log_scan(input_type="label_photo", query_text=file.filename, nutrition_data=parsed)
 
     return {
         "filename": file.filename,
