@@ -1,5 +1,6 @@
 import re
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from app.services.result_builder import enrich_raw_food
 from app.classifier.produce_classifier import classify_produce
 from app.services.usda_client import search_usda
 from app.services.usda_parser import parse_usda_food
@@ -68,9 +69,12 @@ async def classify_produce_photo(file: UploadFile = File(...)):
     product = None
     try:
         usda_raw = search_usda(top_label, page_size=25)
-        best_match = _pick_best_usda_match(usda_raw.get("foods", []), top_label)
+        foods = usda_raw.get("foods", [])
+        best_match = _pick_best_usda_match(foods, top_label)
         if best_match:
-            product = enrich_raw_food(parse_usda_food(best_match))
+            nutrition_result = parse_usda_food(best_match)
+            nutrition_result = enrich_raw_food(nutrition_result)
+            product = nutrition_result
         else:
             warnings.append(f"No USDA nutrition entry found for '{top_label}'.")
     except Exception as e:

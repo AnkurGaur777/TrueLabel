@@ -2,35 +2,31 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.ocr.extractor import extract_text_from_image
 from app.ocr.nutrition_parser import parse_nutrition_from_text
 from app.services.result_builder import ocr_to_product
-from app.services.scan_logger import log_search
+from app.services.scan_logger import log_scan
 
 router = APIRouter()
-
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/jpg", "image/webp"}
 MAX_FILE_SIZE_MB = 10
 
 @router.post("/scan")
 async def scan_label(file: UploadFile = File(...)):
     """
-    Accept a photo of a nutrition label, run OCR, and return the standard
-    product object (nutrition, health score, flags) plus the raw OCR text so
-    the user can verify what was read.
+    Accept an uploaded photo of a nutrition label, run OCR, and return a full
+    product object (nutrition, health score) in the same shape /search uses,
+    plus the raw OCR text for transparency.
     """
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported file type: {file.content_type}. Allowed: {ALLOWED_CONTENT_TYPES}",
         )
-
     image_bytes = await file.read()
-
     size_mb = len(image_bytes) / (1024 * 1024)
     if size_mb > MAX_FILE_SIZE_MB:
         raise HTTPException(
             status_code=400,
             detail=f"File too large: {size_mb:.1f}MB. Max allowed: {MAX_FILE_SIZE_MB}MB",
         )
-
     try:
         raw_text = extract_text_from_image(image_bytes)
     except Exception as e:
@@ -47,15 +43,13 @@ async def scan_label(file: UploadFile = File(...)):
 
     parsed = parse_nutrition_from_text(raw_text)
     product = ocr_to_product(parsed)
-    ocr_notes = product.pop("ocr_notes", [])
-    log_search(file.filename, "label_photo", product)
+    warnings = product.pop("ocr_notes", [])
+    log_scan(input_type="label_photo", query_text=file.filename, nutrition_data=parsed)
 
     return {
         "input_type": "label_photo",
         "source": "ocr",
         "product": product,
         "raw_text": raw_text,
-        "warnings": [
-            "Values were read from the photo by OCR and assumed to be per 100g. Digits and decimal points can be misread, so verify against the physical label."
-        ] + ocr_notes,
+        "warnings": warnings,
     }
