@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrueLabel</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#060416',
+                        surface: '#130C49',
+                        surface2: '#1F137D',
+                        accent: '#874AD7',
+                        accentStrong: '#5C21C3',
+                        textMain: '#F1ECFB',
+                        textDim: '#A79CC9',
+                        good: '#4FE3A0',
+                        warn: '#F6B94D',
+                        bad: '#F26B6B',
+                        line: '#2A1E6E',
+                    },
+                    fontFamily: {
+                        display: ['Sora', 'sans-serif'],
+                        body: ['Manrope', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                },
+            },
+        };
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="bg-bg text-textMain font-body min-h-screen">
+
+    <!-- Header -->
+    <header class="max-w-2xl mx-auto px-5 pt-8 pb-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <div
+                class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accentStrong flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" class="w-4 h-4">
+                    <path d="M12 3c-4 3-7 6-7 10a7 7 0 0 0 14 0c0-4-3-7-7-10Z" fill="white" />
+                </svg>
+            </div>
+            <span class="font-display font-bold text-lg">TrueLabel</span>
+        </div>
+        <span class="text-xs font-mono text-textDim">know what's inside</span>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="max-w-2xl mx-auto px-5">
+        <div class="flex gap-2 p-1 rounded-2xl bg-surface border border-line">
+            <button data-tab="search"
+                class="tab-btn flex-1 py-2.5 rounded-xl text-sm font-semibold transition">Search</button>
+            <button data-tab="scan" class="tab-btn flex-1 py-2.5 rounded-xl text-sm font-semibold transition">Scan
+                Label</button>
+            <button data-tab="classify"
+                class="tab-btn flex-1 py-2.5 rounded-xl text-sm font-semibold transition">Identify Produce</button>
+        </div>
+    </nav>
+
+    <main class="max-w-2xl mx-auto px-5 py-6 flex flex-col gap-6">
+
+        <!-- Search panel -->
+        <section id="panel-search" class="tab-panel flex flex-col gap-3">
+            <form id="search-form" class="flex flex-col gap-3">
+                <div class="flex gap-2">
+                    <input id="search-input" type="text" placeholder="Search a product name or paste a barcode..."
+                        class="flex-1 bg-surface border border-line rounded-xl px-4 py-3 text-sm placeholder:text-textDim focus:outline-none focus:border-accent">
+                    <button type="submit"
+                        class="bg-accent hover:bg-accentStrong transition text-white font-semibold text-sm px-5 rounded-xl">Search</button>
+                </div>
+                <label class="flex items-center gap-2 text-xs text-textDim">
+                    <input id="is-barcode" type="checkbox" class="accent-accent">
+                    This is a barcode number
+                </label>
+            </form>
+        </section>
+
+        <!-- Scan panel -->
+        <section id="panel-scan" class="tab-panel hidden flex flex-col gap-3">
+            <div class="border border-dashed border-line rounded-xl p-6 text-center">
+                <p class="text-sm text-textDim mb-3">Upload a clear, flat-on photo of a nutrition label</p>
+                <input id="scan-input" type="file" accept="image/*" class="hidden">
+                <button id="scan-choose"
+                    class="bg-surface2 border border-line px-4 py-2 rounded-lg text-sm font-semibold">Choose
+                    photo</button>
+                <p id="scan-filename" class="text-xs text-textDim mt-3"></p>
+            </div>
+            <button id="scan-submit" disabled
+                class="bg-accent disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accentStrong transition text-white font-semibold text-sm py-3 rounded-xl">Analyze
+                label</button>
+        </section>
+
+        <!-- Classify panel -->
+        <section id="panel-classify" class="tab-panel hidden flex flex-col gap-3">
+            <div class="border border-dashed border-line rounded-xl p-6 text-center">
+                <p class="text-sm text-textDim mb-3">Upload a clear photo of a fruit or vegetable</p>
+                <input id="classify-input" type="file" accept="image/*" class="hidden">
+                <button id="classify-choose"
+                    class="bg-surface2 border border-line px-4 py-2 rounded-lg text-sm font-semibold">Choose
+                    photo</button>
+                <p id="classify-filename" class="text-xs text-textDim mt-3"></p>
+            </div>
+            <button id="classify-submit" disabled
+                class="bg-accent disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accentStrong transition text-white font-semibold text-sm py-3 rounded-xl">Identify
+                produce</button>
+        </section>
+
+        <!-- Status / results -->
+        <div id="status" class="hidden text-sm text-textDim"></div>
+        <div id="results" class="flex flex-col gap-6"></div>
+
+    </main>
+
+    <footer
+        class="max-w-2xl mx-auto px-5 pb-10 pt-4 text-[11px] text-textDim/60 border-t border-line/60 mt-4 leading-relaxed">
+        Estimated health scores only, not an official rating. Ingredient identification is automated and may be
+        incomplete - always check the physical label for allergens.
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
