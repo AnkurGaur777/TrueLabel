@@ -120,11 +120,6 @@ health_score.rating can be: "green" | "yellow" | "red" | "uncertain"
 - Image classifier struggles on cluttered/angled/dim real photos
 - Health score is a heuristic estimate, not an official rating
 
-## Git status
-Latest commit: e3e504d — "Open camera directly on mobile for scan and
-classify uploads"
-(Run `git log --oneline` fresh each session and paste it to confirm current state)
-
 ## Not yet started
 - README, architecture diagram, screenshots, interview prep
 
