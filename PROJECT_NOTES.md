@@ -11,9 +11,9 @@ I write/run all code myself via Antigravity (AI coding tool) and PowerShell
 on my own Windows PC. Claude has no direct access to my machine — it gives
 copy-pasteable code/commands, I run them and paste back the output.
 
-## Current phase
-Frontend complete and tested (search, scan, classify all working).
-Next: Docker Compose for the full app (backend + MySQL together).
+## Git status
+Latest commit: 304ecbe — "Dockerize the FastAPI backend and wire it into
+docker-compose with MySQL"
 
 ## Ports (IMPORTANT — avoid conflicts with other local projects)
 - Backend API: http://127.0.0.1:8001  (NOT 8000 — that's taken by another
@@ -124,3 +124,19 @@ classify uploads"
   needs its own Dockerfile with Tesseract OCR system dependencies bundled
   in (this is the main risk area — expect some debugging)
 - README, architecture diagram, screenshots, interview prep
+
+
+## Docker structure (all committed, working)
+backend/Dockerfile    — Python 3.13-slim + Tesseract + OpenCV libs (libgl1
+                         was the tricky one) + CPU-only torch/torchvision
+                         installed from download.pytorch.org/whl/cpu
+                         (installing torch normally pulls the huge
+                         CUDA/GPU build and mismatched torchvision)
+backend/.dockerignore — excludes venv/, .env
+docker/docker-compose.yml — "db" (MySQL, healthcheck) + "backend" (FastAPI),
+                             backend waits for db to be healthy
+Run everything with:
+  docker compose -f docker/docker-compose.yml --env-file docker/.env up -d --build
+Backend inside Docker talks to MySQL via DB_HOST=db, DB_PORT=3306 (service
+name + internal port) — this is DIFFERENT from the host-side DB_HOST=127.0.0.1,
+DB_PORT=3307 used when running uvicorn directly outside Docker.
