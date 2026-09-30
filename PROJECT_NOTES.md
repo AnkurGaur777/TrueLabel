@@ -11,6 +11,12 @@ I write/run all code myself via Antigravity (AI coding tool) and PowerShell
 on my own Windows PC. Claude has no direct access to my machine — it gives
 copy-pasteable code/commands, I run them and paste back the output.
 
+## Current phase
+Docker Compose complete — backend + MySQL run together via one command.
+Frontend still runs separately (python -m http.server), by design — a
+static site doesn't need its own container.
+Next: README, architecture diagram, screenshots, interview prep.
+
 ## Git status
 Latest commit: 304ecbe — "Dockerize the FastAPI backend and wire it into
 docker-compose with MySQL"
@@ -120,11 +126,7 @@ classify uploads"
 (Run `git log --oneline` fresh each session and paste it to confirm current state)
 
 ## Not yet started
-- Docker Compose for full app — only MySQL is Dockerized so far; FastAPI
-  needs its own Dockerfile with Tesseract OCR system dependencies bundled
-  in (this is the main risk area — expect some debugging)
 - README, architecture diagram, screenshots, interview prep
-
 
 ## Docker structure (all committed, working)
 backend/Dockerfile    — Python 3.13-slim + Tesseract + OpenCV libs (libgl1
